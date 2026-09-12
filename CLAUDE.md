@@ -35,10 +35,6 @@ These were hit in sequence during submission. Do not undo these fixes:
 
 ## Open items
 
-- **Commit author email is a placeholder.** Currently
-  `ubaid@users.noreply.github.com`, which guesses the GitHub username. The real
-  form includes a numeric ID (`12345678+username@users.noreply.github.com`),
-  found under GitHub Settings → Emails. Fix before pushing publicly.
 - **Add-on ID contains a personal domain** (`pinned-tabs@ubaiddhiyan.com`). It
   is an identifier string, not a working address, but it is visible in a public
   repo. Changing it means Mozilla treats it as a different add-on: new
