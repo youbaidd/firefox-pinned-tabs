@@ -111,38 +111,3 @@ browser.windows.getAll().then((windows) => {
     savePinnedTabs(window.id);
   });
 });
-
-// Handle tab switching via keyboard shortcut
-browser.runtime.onMessage.addListener((request, sender) => {
-  if (request.action === 'switchTab') {
-    switchTab(sender.tab.windowId, request.direction);
-  }
-});
-
-// Switch to next or previous tab
-async function switchTab(windowId, direction) {
-  try {
-    // Get all tabs in the current window
-    const tabs = await browser.tabs.query({ windowId });
-    
-    if (tabs.length <= 1) return; // No point switching if only one tab
-    
-    // Find the currently active tab
-    const activeTab = tabs.find(tab => tab.active);
-    const currentIndex = tabs.findIndex(tab => tab.id === activeTab.id);
-    
-    let newIndex;
-    if (direction === 'next') {
-      // Move to next tab, wrap around to first
-      newIndex = (currentIndex + 1) % tabs.length;
-    } else {
-      // Move to previous tab, wrap around to last
-      newIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-    }
-    
-    const targetTab = tabs[newIndex];
-    await browser.tabs.update(targetTab.id, { active: true });
-  } catch (error) {
-    console.error('Error switching tabs:', error);
-  }
-}

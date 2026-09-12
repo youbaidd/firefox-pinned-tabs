@@ -8,7 +8,6 @@ A Firefox extension that saves your pinned tabs and reopens them automatically, 
 - Saved tabs are restored on browser startup and in every newly opened window
 - Existing tabs are re-pinned rather than duplicated
 - A toolbar popup lets you review saved tabs, remove individual entries, or clear all
-- `Option + Left` / `Option + Right` cycle through tabs in the current window
 
 ## Installation
 
@@ -31,13 +30,7 @@ Temporary add-ons are removed when Firefox closes. Use this while iterating on t
 
 `background.js` listens for `tabs.onUpdated` and watches the `pinned` flag. Pinning a tab appends its URL to a list in `storage.local`; unpinning removes it. On `windows.onCreated` and at startup, the saved list is replayed into the window, skipping URLs already open and pinning them in place instead.
 
-`content.js` is injected into pages and listens for `Option + Arrow` keydowns, messaging the background script to change the active tab. Indexes wrap, so the last tab advances to the first. Keystrokes inside inputs, textareas, and contenteditable regions are ignored so word-by-word cursor movement still works.
-
 ## Known limitations
-
-**The shortcut does not work everywhere.** Content scripts are not injected into `about:` pages, `addons.mozilla.org`, the built-in PDF viewer, or blank new tabs, so the shortcut silently does nothing there. The alternative is the `commands` manifest key, which registers shortcuts at the browser level and covers every page.
-
-**Platform differences.** On macOS, `Option + Arrow` is word-wise cursor movement, which the editable-target guard preserves. On Windows and Linux, `Alt + Arrow` is Back and Forward, so the shortcut overrides history navigation there.
 
 **Tabs are stored as a flat global list.** All windows share one set of pinned tabs rather than each window keeping its own.
 
@@ -46,16 +39,14 @@ Temporary add-ons are removed when Firefox closes. Use this while iterating on t
 | File | Purpose |
 | --- | --- |
 | `manifest.json` | Extension configuration, permissions, add-on ID |
-| `background.js` | Persistence logic and tab switching |
-| `content.js` | Keyboard shortcut listener |
+| `background.js` | Persistence logic |
 | `popup.html` | Popup markup and styles |
 | `popup.js` | Popup interaction logic |
 
 ## Permissions
 
-- `tabs` — read tab URLs, pin tabs, create tabs, change the active tab
+- `tabs` — read tab URLs, pin tabs, create tabs
 - `storage` — persist the pinned URL list locally
-- `<all_urls>` (content script) — required to capture the keyboard shortcut on any page
 
 The extension collects and transmits no data. This is declared in the manifest via `browser_specific_settings.gecko.data_collection_permissions` with `required: ["none"]`, which Firefox surfaces on the install prompt.
 
@@ -64,11 +55,10 @@ The extension collects and transmits no data. This is declared in the manifest v
 No build step. The source files are the shipped files. To produce an `.xpi`:
 
 ```bash
-zip -r pinned-tabs.xpi manifest.json background.js content.js popup.html popup.js README.md
+zip -r pinned-tabs.xpi manifest.json background.js popup.html popup.js README.md
 ```
 
 ## Possible improvements
 
-- Move the shortcut to the `commands` API to drop the `<all_urls>` content script
 - Per-window pinned tab sets
 - Export and import the saved list as JSON
