@@ -40,7 +40,9 @@ These were hit in sequence during submission. Do not undo these fixes:
   repo. Changing it means Mozilla treats it as a different add-on: new
   submission, new signature, and the installed copy will not update to it.
 - **Version 1.0 was signed with a tab-cycling shortcut that has since been
-  removed.** Version 1.1 (current) drops it. 1.1 has not been submitted yet.
+  removed.** Version 1.1 dropped it and was submitted to Mozilla. Version 1.2
+  (current) fixes the `windows.onCreated` restore bug described below and has
+  not been submitted yet.
 
 ## Removed on purpose
 
@@ -51,6 +53,16 @@ extension requested and the one most likely to attract reviewer scrutiny on a
 tab-management add-on. Re-adding page-level shortcuts brings that permission
 back — prefer the `commands` manifest key, which registers at browser level and
 needs no host permissions, if shortcuts are ever wanted again.
+
+## Restore trigger
+
+Pinned tabs are replayed only on `browser.runtime.onStartup` — true browser
+launch, fired once. An earlier version also restored on `windows.onCreated`,
+which fires for *every* new window (Cmd+N, "New Window" from the menu, etc.),
+so opening a plain new window kept dumping the whole pinned-tab list into it.
+Removed for that reason. Do not reintroduce a `windows.onCreated` restore
+listener; if per-window behavior is ever wanted, gate it on some "already
+restored this session" flag rather than firing unconditionally.
 
 ## Known limitations
 

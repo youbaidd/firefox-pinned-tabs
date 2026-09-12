@@ -88,21 +88,14 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-// Restore pinned tabs when a new window is created
-browser.windows.onCreated.addListener((window) => {
-  console.log('New window created, restoring pinned tabs');
-  // Use a small delay to ensure the window is fully ready
-  setTimeout(() => restorePinnedTabs(window.id), 500);
-});
-
-// Restore pinned tabs on browser startup
-browser.windows.getAll().then((windows) => {
-  if (windows.length > 0) {
+// Restore pinned tabs on browser startup only, not on every new window
+browser.runtime.onStartup.addListener(() => {
+  browser.windows.getAll().then((windows) => {
     console.log('Browser startup detected, restoring pinned tabs');
     windows.forEach(window => {
       setTimeout(() => restorePinnedTabs(window.id), 500);
     });
-  }
+  });
 });
 
 // Initialize: save any existing pinned tabs on install/update

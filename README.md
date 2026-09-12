@@ -28,7 +28,7 @@ Temporary add-ons are removed when Firefox closes. Use this while iterating on t
 
 ## How it works
 
-`background.js` listens for `tabs.onUpdated` and watches the `pinned` flag. Pinning a tab appends its URL to a list in `storage.local`; unpinning removes it. On `windows.onCreated` and at startup, the saved list is replayed into the window, skipping URLs already open and pinning them in place instead.
+`background.js` listens for `tabs.onUpdated` and watches the `pinned` flag. Pinning a tab appends its URL to a list in `storage.local`; unpinning removes it. On `runtime.onStartup` — browser launch only, not every new window — the saved list is replayed into each open window, skipping URLs already open and pinning them in place instead.
 
 ## Known limitations
 
