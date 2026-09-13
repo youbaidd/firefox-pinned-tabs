@@ -3,8 +3,8 @@
 ## What this is
 
 A Firefox extension that persists pinned tabs across sessions. Firefox loses
-pinned tabs when you close a window; this saves their URLs and restores them on
-startup and in new windows.
+pinned tabs when you close a window; this saves their URLs and restores them,
+in order, on browser startup.
 
 No build step, no dependencies, no test suite. The source files are the shipped
 files. Packaging is a plain `zip`.
@@ -64,6 +64,20 @@ Removed for that reason. Do not reintroduce a `windows.onCreated` restore
 listener; if per-window behavior is ever wanted, gate it on some "already
 restored this session" flag rather than firing unconditionally.
 
+## Settings page
+
+`options.html`/`options.js` register via `options_ui` (`open_in_tab: true`,
+so it opens full-tab from `about:addons` → Preferences rather than a small
+popup panel). It reads and writes the same `storage.local` array the popup
+and `background.js` use — there is one ordered list, not a separate
+"configured" list layered on top of the "observed" one. Manually pinning a
+tab still appends to the end of that array via the existing `tabs.onUpdated`
+listener; the settings page just gives another way to add/remove/reorder the
+same data. `restorePinnedTabs` in `background.js` already iterated the array
+sequentially with `await` inside the loop, so listed order was preserved
+before this feature existed — reordering in settings is enough to control
+launch order, no change to the restore logic was needed.
+
 ## Known limitations
 
 Pinned tabs are one flat global list in `storage.local`, shared across all
@@ -72,7 +86,7 @@ windows, rather than per-window sets.
 ## Packaging
 
 ```bash
-zip -r pinned-tabs.xpi manifest.json background.js popup.html popup.js README.md
+zip -r pinned-tabs.xpi manifest.json background.js popup.html popup.js options.html options.js README.md
 ```
 
 Bump `version` in `manifest.json` before each submission; Mozilla rejects

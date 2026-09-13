@@ -50,6 +50,7 @@ async function clearAllPinnedTabs() {
 
 document.getElementById('refreshBtn').addEventListener('click', loadPinnedTabs);
 document.getElementById('clearBtn').addEventListener('click', clearAllPinnedTabs);
+document.getElementById('settingsBtn').addEventListener('click', () => browser.runtime.openOptionsPage());
 
 // Load on open
 loadPinnedTabs();
