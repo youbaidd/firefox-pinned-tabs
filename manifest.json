@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Pinned Tab Persistence",
-  "version": "1.2",
-  "description": "Automatically restore pinned tabs across browser sessions",
+  "name": "Pinned Startup Tabs",
+  "version": "2.0",
+  "description": "Open your chosen sites as pinned tabs, in order, every time Firefox starts",
   "browser_specific_settings": {
     "gecko": {
       "id": "pinned-tabs@ubaiddhiyan.com",
@@ -19,7 +19,7 @@
     "scripts": ["background.js"]
   },
   "action": {
-    "default_title": "Pinned Tab Persistence"
+    "default_title": "Pinned Startup Tabs"
   },
   "options_ui": {
     "page": "options.html",

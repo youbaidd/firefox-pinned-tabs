@@ -1,6 +1,6 @@
 # Requirements: Startup Tab Set
 
-Status: **draft for review**. Nothing has been built against this yet.
+Status: **approved and implemented in 2.0.** Answers to the open questions are recorded in section 6.
 
 ## 1. Goal
 
@@ -72,9 +72,9 @@ no longer watches tabs to decide what goes in the list.
   - see the list numbered in launch order
 - **R11.** Invalid input shows an inline error and isn't saved. Adding a
   duplicate shows an inline error.
-- **R12.** "Add all open tabs from this window" button: a convenience that adds
-  every http(s) tab in the current window to the end of the list, skipping
-  duplicates. It's the only shortcut from what's open in the browser into the
+- **R12.** "Add this window's pinned tabs" button: a convenience that adds
+  every pinned http(s) tab in the current window to the end of the list,
+  skipping duplicates. It's the only shortcut from what's open in the browser into the
   list, and the user has to choose it explicitly.
 - **R13.** Changes save immediately. There's no Save button.
 
@@ -126,24 +126,22 @@ no longer watches tabs to decide what goes in the list.
 - Closing or replacing Firefox's own home page / new-tab page. The set opens
   *alongside* whatever Firefox shows. (See open question Q4.)
 
-## 6. Open questions for the user
+## 6. Decisions (answered by the user)
 
-- **Q1. Pinned or normal tabs?** The repo is called *pinned-tabs*, but
-  "like multiple home pages" sounds like normal tabs. Options: (a) always
-  pinned, (b) always normal, (c) a per-entry "pin" checkbox. Draft
-  assumption: **(c), default pinned.**
-- **Q2. Session restore.** Is Firefox's "Open previous windows and tabs"
-  setting on? If yes, R8's dedup decides whether you get duplicates. If no,
-  every launch starts clean and dedup rarely matters.
-- **Q3. Dedup strictness.** Matching on hostname (R8) means any open LinkedIn
-  tab, for example a profile page, counts as "already open" and blocks the
-  LinkedIn entry. Is that what you want, or should the set entry always open
-  its own tab unless one of *its own* tabs is still open from last session?
-- **Q4. Default home tab.** Should the extension close the blank/home tab
-  Firefox opens on launch, so you only see your set? Draft assumption:
-  **no**, to avoid closing something the user meant to have open.
-- **Q5. Migration.** Discard the old saved list (R19), or carry it over into
-  the new set for you to clean up?
+- **Q1. Pinned or normal tabs → always pinned.** Every set tab opens pinned.
+  No per-entry checkbox. Tabs the user pins by hand can be pulled into the
+  set with the R12 button.
+- **Q2. Session restore → must work either way.** On launch the extension
+  waits until no tab has been created or navigated for 1 s (10 s at most).
+  This lets Firefox finish restoring before the duplicate check runs. Pinned
+  tabs that session restore brings back are reused and moved into list
+  order. They aren't opened a second time.
+- **Q3. Dedup → any open tab on the same site counts as already open**
+  (hostname match, `www.` ignored), pinned or not. A pinned match is moved
+  into its slot. An unpinned match is left exactly where the user had it.
+- **Q4. Default home tab → left alone.**
+- **Q5. Migration → the 1.x `pinnedTabs` list is discarded** on upgrade, and
+  the settings page opens.
 
 ## 7. Acceptance checks (manual)
 

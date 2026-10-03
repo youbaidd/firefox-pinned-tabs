@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Pinned Tab Persistence — Settings</title>
+  <title>Pinned Startup Tabs — Settings</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -52,6 +52,15 @@
 
     .add-form button:hover {
       background: #339af0;
+    }
+
+    .add-form button.secondary {
+      background: #e9ecef;
+      color: #333;
+    }
+
+    .add-form button.secondary:hover {
+      background: #dee2e6;
     }
 
     .error {
@@ -148,12 +157,13 @@
   </style>
 </head>
 <body>
-  <h1>📌 Pinned Tab Persistence</h1>
-  <p class="subtitle">These URLs open as pinned tabs, in this order, each time Firefox starts.</p>
+  <h1>📌 Pinned Startup Tabs</h1>
+  <p class="subtitle">These sites open as pinned tabs, in this order, each time Firefox starts. A site that is already open is not opened again.</p>
 
   <div class="add-form">
     <input type="text" id="urlInput" placeholder="https://example.com">
     <button id="addBtn">Add</button>
+    <button id="importBtn" class="secondary">Add this window's pinned tabs</button>
   </div>
   <div class="error" id="errorMsg"></div>
 
@@ -161,7 +171,7 @@
     <div class="empty">Loading...</div>
   </div>
 
-  <p class="hint">Pinning or unpinning a tab in the browser also adds or removes it here — new tabs are appended to the end of the list.</p>
+  <p class="hint">Only this page changes the list. Pinning, unpinning or closing tabs in the browser leaves it as is.</p>
 
   <script src="options.js"></script>
 </body>

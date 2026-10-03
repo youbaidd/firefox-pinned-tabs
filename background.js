@@ -1,106 +1,141 @@
-// Storage key for pinned tabs
-const STORAGE_KEY = 'pinnedTabs';
+// The startup set: an ordered list of URLs the user defines in settings.
+// Only the settings page writes it — browsing never changes it.
+const STORAGE_KEY = 'startupTabs';
 
-// Save pinned tabs from a window to storage
-async function savePinnedTabs(windowId) {
+// Storage key used by 1.x, which recorded pinned tabs by observation.
+// Discarded on upgrade because that list is unreliable.
+const LEGACY_STORAGE_KEY = 'pinnedTabs';
+
+// How long the tab strip must be quiet before we treat Firefox's own session
+// restore as finished, and the most we will wait for that.
+const SETTLE_QUIET_MS = 1000;
+const SETTLE_MAX_MS = 10000;
+
+async function getStartupTabs() {
+  const data = await browser.storage.local.get(STORAGE_KEY);
+  return data[STORAGE_KEY] || [];
+}
+
+// Two URLs are "the same site" when their hostnames match, ignoring a
+// leading "www.". So https://www.x.com matches an open https://x.com/home.
+function siteKey(url) {
   try {
-    const tabs = await browser.tabs.query({ windowId, pinned: true });
-    const pinnedUrls = tabs.map(tab => tab.url).filter(url => url);
-    
-    const data = await browser.storage.local.get(STORAGE_KEY);
-    const allPinned = data[STORAGE_KEY] || [];
-    
-    // Merge new pinned tabs, avoiding duplicates
-    const merged = Array.from(new Set([...allPinned, ...pinnedUrls]));
-    
-    await browser.storage.local.set({ [STORAGE_KEY]: merged });
-    console.log('Saved pinned tabs:', merged);
-  } catch (error) {
-    console.error('Error saving pinned tabs:', error);
+    const { protocol, hostname } = new URL(url);
+    if (protocol !== 'http:' && protocol !== 'https:') return null;
+    return hostname.replace(/^www\./, '');
+  } catch {
+    return null;
   }
 }
 
-// Remove a URL from storage
-async function removePinnedTab(url) {
-  try {
-    const data = await browser.storage.local.get(STORAGE_KEY);
-    const allPinned = data[STORAGE_KEY] || [];
-    
-    const filtered = allPinned.filter(u => u !== url);
-    
-    await browser.storage.local.set({ [STORAGE_KEY]: filtered });
-    console.log('Removed pinned tab:', url);
-  } catch (error) {
-    console.error('Error removing pinned tab:', error);
-  }
-}
+// Open the startup set in one window: pinned, leftmost, in list order.
+// Entries whose site is already open in the window are not opened again.
+async function openStartupTabs(windowId) {
+  const urls = await getStartupTabs();
+  if (urls.length === 0) return;
 
-// Restore pinned tabs in a window
-async function restorePinnedTabs(windowId) {
-  try {
-    const data = await browser.storage.local.get(STORAGE_KEY);
-    const pinnedUrls = data[STORAGE_KEY] || [];
-    
-    if (pinnedUrls.length === 0) {
-      console.log('No pinned tabs to restore');
-      return;
-    }
-    
-    // Get existing tabs in the window
-    const existingTabs = await browser.tabs.query({ windowId });
-    const existingUrls = new Set(existingTabs.map(tab => tab.url));
-    
-    // Open each pinned tab URL if not already open
-    for (const url of pinnedUrls) {
-      if (!existingUrls.has(url)) {
-        try {
-          await browser.tabs.create({ windowId, url, pinned: true });
-          console.log('Restored pinned tab:', url);
-        } catch (error) {
-          console.error('Error creating pinned tab:', error);
+  const existingTabs = await browser.tabs.query({ windowId });
+  const claimed = new Set();
+  let index = 0;
+
+  for (const url of urls) {
+    const key = siteKey(url);
+    const candidates = existingTabs.filter(
+      t => !claimed.has(t.id) && siteKey(t.url) === key
+    );
+    // Prefer an already-pinned tab, e.g. one Firefox's session restore brought back.
+    const match = candidates.find(t => t.pinned) || candidates[0];
+
+    try {
+      if (match) {
+        claimed.add(match.id);
+        // A pinned match takes this entry's slot so the order holds.
+        // An unpinned match is the user's own tab: leave it untouched.
+        if (match.pinned) {
+          if (match.index !== index) await browser.tabs.move(match.id, { index });
+          index++;
         }
       } else {
-        // Tab already exists, just pin it
-        const tab = existingTabs.find(t => t.url === url);
-        if (tab && !tab.pinned) {
-          await browser.tabs.update(tab.id, { pinned: true });
-          console.log('Pinned existing tab:', url);
-        }
+        await browser.tabs.create({ windowId, url, pinned: true, index, active: false });
+        index++;
       }
+    } catch (error) {
+      console.error('Error opening startup tab:', url, error);
     }
-  } catch (error) {
-    console.error('Error restoring pinned tabs:', error);
   }
 }
 
-// Listen for tab changes (pinned/unpinned)
-browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.hasOwnProperty('pinned')) {
-    if (changeInfo.pinned) {
-      // Tab was pinned, save it
-      console.log('Tab pinned:', tab.url);
-      savePinnedTabs(tab.windowId);
-    } else {
-      // Tab was unpinned, remove it from storage
-      console.log('Tab unpinned:', tab.url);
-      removePinnedTab(tab.url);
-    }
+// Resolve once no tab has been created or navigated for SETTLE_QUIET_MS,
+// or after SETTLE_MAX_MS. This lets session restore finish first, so its
+// tabs are visible to the duplicate check whether or not it is enabled.
+function waitForTabsToSettle() {
+  return new Promise(resolve => {
+    const start = Date.now();
+    let lastActivity = start;
+    const onActivity = () => { lastActivity = Date.now(); };
+    const onUpdated = (tabId, changeInfo) => { if (changeInfo.url) onActivity(); };
+
+    browser.tabs.onCreated.addListener(onActivity);
+    browser.tabs.onUpdated.addListener(onUpdated);
+
+    const timer = setInterval(() => {
+      const now = Date.now();
+      if (now - lastActivity >= SETTLE_QUIET_MS || now - start >= SETTLE_MAX_MS) {
+        clearInterval(timer);
+        browser.tabs.onCreated.removeListener(onActivity);
+        browser.tabs.onUpdated.removeListener(onUpdated);
+        resolve();
+      }
+    }, 200);
+  });
+}
+
+function isTargetWindow(win) {
+  return win.type === 'normal' && !win.incognito;
+}
+
+// The first normal, non-private window — waiting for one if none exists yet.
+async function getTargetWindow() {
+  const windows = await browser.windows.getAll({ windowTypes: ['normal'] });
+  const existing = windows.find(isTargetWindow);
+  if (existing) return existing;
+
+  return new Promise(resolve => {
+    const onCreated = win => {
+      if (!isTargetWindow(win)) return;
+      browser.windows.onCreated.removeListener(onCreated);
+      resolve(win);
+    };
+    browser.windows.onCreated.addListener(onCreated);
+  });
+}
+
+// Browser launch only. New windows (Cmd+N), private windows, and extension
+// install/update/enable do not open the set.
+browser.runtime.onStartup.addListener(async () => {
+  try {
+    const win = await getTargetWindow();
+    await waitForTabsToSettle();
+    await openStartupTabs(win.id);
+  } catch (error) {
+    console.error('Error opening startup tabs:', error);
   }
 });
 
-// Restore pinned tabs on browser startup only, not on every new window
-browser.runtime.onStartup.addListener(() => {
-  browser.windows.getAll().then((windows) => {
-    console.log('Browser startup detected, restoring pinned tabs');
-    windows.forEach(window => {
-      setTimeout(() => restorePinnedTabs(window.id), 500);
-    });
-  });
+// The popup's "Open set now" button. Handled here because the popup closes
+// as soon as a tab opens, which would cut its own work short.
+browser.runtime.onMessage.addListener(message => {
+  if (message && message.type === 'openStartupTabs') {
+    return openStartupTabs(message.windowId);
+  }
 });
 
-// Initialize: save any existing pinned tabs on install/update
-browser.windows.getAll().then((windows) => {
-  windows.forEach(window => {
-    savePinnedTabs(window.id);
-  });
+// First install, or upgrade from 1.x: start with an empty set and open
+// settings so the user can define it.
+browser.runtime.onInstalled.addListener(async ({ reason, previousVersion }) => {
+  const isUpgradeFromV1 = reason === 'update' && previousVersion && previousVersion.startsWith('1.');
+  if (reason !== 'install' && !isUpgradeFromV1) return;
+
+  await browser.storage.local.remove(LEGACY_STORAGE_KEY);
+  browser.runtime.openOptionsPage();
 });

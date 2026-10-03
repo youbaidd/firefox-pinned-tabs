@@ -28,7 +28,6 @@
       padding: 12px;
       border-bottom: 1px solid #eee;
       display: flex;
-      justify-content: space-between;
       align-items: center;
       gap: 8px;
     }
@@ -45,20 +44,13 @@
       overflow: hidden;
     }
     
-    .tab-item button {
-      padding: 4px 8px;
-      border: none;
-      background: #ff6b6b;
-      color: white;
-      border-radius: 4px;
-      cursor: pointer;
+    .tab-order {
+      color: #999;
       font-size: 12px;
+      width: 20px;
+      flex-shrink: 0;
     }
-    
-    .tab-item button:hover {
-      background: #ff5252;
-    }
-    
+
     .empty {
       padding: 20px;
       text-align: center;
@@ -82,22 +74,18 @@
       font-weight: 500;
     }
     
-    .clear-btn {
-      background: #ff6b6b;
-      color: white;
-    }
-    
-    .clear-btn:hover {
-      background: #ff5252;
-    }
-    
-    .refresh-btn {
+    .open-btn {
       background: #4dabf7;
       color: white;
     }
-    
-    .refresh-btn:hover {
+
+    .open-btn:hover:not(:disabled) {
       background: #339af0;
+    }
+
+    .open-btn:disabled {
+      opacity: 0.5;
+      cursor: default;
     }
 
     .settings-btn {
@@ -111,18 +99,15 @@
   </style>
 </head>
 <body>
-  <h2>📌 Pinned Tabs</h2>
+  <h2>📌 Startup Tabs</h2>
   
   <div class="tab-list" id="tabList">
     <div class="empty">Loading...</div>
   </div>
   
   <div class="button-group">
-    <button class="refresh-btn" id="refreshBtn">Refresh</button>
-    <button class="clear-btn" id="clearBtn">Clear All</button>
-  </div>
-  <div class="button-group">
-    <button class="settings-btn" id="settingsBtn">Settings</button>
+    <button class="open-btn" id="openBtn">Open set now</button>
+    <button class="settings-btn" id="settingsBtn">Edit…</button>
   </div>
   
   <script src="popup.js"></script>

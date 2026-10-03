@@ -2,9 +2,10 @@
 
 ## What this is
 
-A Firefox extension that persists pinned tabs across sessions. Firefox loses
-pinned tabs when you close a window; this saves their URLs and restores them,
-in order, on browser startup.
+A Firefox extension that opens a user-defined set of sites as pinned tabs, in
+order, every time Firefox starts — like having several home pages. The full
+spec, including the user's answers to its open questions, is in
+`REQUIREMENTS.md`.
 
 No build step, no dependencies, no test suite. The source files are the shipped
 files. Packaging is a plain `zip`.
@@ -41,8 +42,9 @@ These were hit in sequence during submission. Do not undo these fixes:
   submission, new signature, and the installed copy will not update to it.
 - **Version 1.0 was signed with a tab-cycling shortcut that has since been
   removed.** Version 1.1 dropped it and was submitted to Mozilla. Version 1.2
-  (current) fixes the `windows.onCreated` restore bug described below and has
-  not been submitted yet.
+  fixed the `windows.onCreated` restore bug and was never submitted. Version
+  2.0 (current) replaces the observe-pinned-tabs model with a user-defined
+  set and has not been submitted yet.
 
 ## Removed on purpose
 
@@ -54,34 +56,44 @@ tab-management add-on. Re-adding page-level shortcuts brings that permission
 back — prefer the `commands` manifest key, which registers at browser level and
 needs no host permissions, if shortcuts are ever wanted again.
 
-## Restore trigger
+## Why 2.0 replaced the 1.x model
 
-Pinned tabs are replayed only on `browser.runtime.onStartup` — true browser
-launch, fired once. An earlier version also restored on `windows.onCreated`,
-which fires for *every* new window (Cmd+N, "New Window" from the menu, etc.),
-so opening a plain new window kept dumping the whole pinned-tab list into it.
-Removed for that reason. Do not reintroduce a `windows.onCreated` restore
-listener; if per-window behavior is ever wanted, gate it on some "already
-restored this session" flag rather than firing unconditionally.
+1.x built its list by *watching* which tabs were pinned and merging them into
+storage on every launch and every pin. Anything pinned once stayed in the
+list forever, and redirects (`www.x.com` → `x.com/home`) defeated its
+exact-URL dedup, so each launch opened duplicates that were then saved as
+new entries. Don't reintroduce observation: the settings page is the only
+writer of the list (`storage.local` key `startupTabs`). The old key
+`pinnedTabs` is deleted on upgrade from 1.x.
+
+## Launch behavior
+
+- Opens only on `browser.runtime.onStartup`, into **one** window: the first
+  normal, non-private one. An earlier version also restored on
+  `windows.onCreated`, which fires for every new window (Cmd+N), dumping the
+  whole set into it. Do not reintroduce a `windows.onCreated` restore
+  listener. (`getTargetWindow` listens to `windows.onCreated` only to wait for
+  the first window during the startup handler, then removes itself.)
+- Waits for the tab strip to settle (`SETTLE_QUIET_MS` / `SETTLE_MAX_MS`)
+  before deduping, so Firefox's session restore finishes first. It must
+  behave the same whether session restore is on or off.
+- Dedup is by hostname with `www.` stripped (`siteKey`). Per the user, *any*
+  open tab on the same site counts as already open. A pinned match is moved
+  into its list slot. An unpinned match is left untouched.
+- All set tabs open pinned, `active: false`, at the left in list order.
+- The popup's "Open set now" sends a `openStartupTabs` message to the
+  background, because the popup closes as soon as a tab opens.
 
 ## Settings page
 
-`options.html`/`options.js` register via `options_ui` (`open_in_tab: true`,
-so it opens full-tab from `about:addons` → Preferences rather than a small
-popup panel). It reads and writes the same `storage.local` array the popup
-and `background.js` use — there is one ordered list, not a separate
-"configured" list layered on top of the "observed" one. Manually pinning a
-tab still appends to the end of that array via the existing `tabs.onUpdated`
-listener; the settings page just gives another way to add/remove/reorder the
-same data. `restorePinnedTabs` in `background.js` already iterated the array
-sequentially with `await` inside the loop, so listed order was preserved
-before this feature existed — reordering in settings is enough to control
-launch order, no change to the restore logic was needed.
+`options.html`/`options.js` register via `options_ui` (`open_in_tab: true`).
+Add/remove/reorder, plus "Add this window's pinned tabs" as the only explicit
+bridge from browsing into the list. Input without a scheme gets `https://`.
+Only http(s) is accepted.
 
 ## Known limitations
 
-Pinned tabs are one flat global list in `storage.local`, shared across all
-windows, rather than per-window sets.
+The set opens in one window only. Site matching is hostname-level.
 
 ## Packaging
 

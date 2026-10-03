@@ -1,56 +1,48 @@
-const STORAGE_KEY = 'pinnedTabs';
+const STORAGE_KEY = 'startupTabs';
 
-async function loadPinnedTabs() {
+async function loadStartupTabs() {
   const data = await browser.storage.local.get(STORAGE_KEY);
-  const pinnedTabs = data[STORAGE_KEY] || [];
-  
+  const startupTabs = data[STORAGE_KEY] || [];
+
   const tabList = document.getElementById('tabList');
   tabList.innerHTML = '';
-  
-  if (pinnedTabs.length === 0) {
-    tabList.innerHTML = '<div class="empty">No pinned tabs yet</div>';
+  document.getElementById('openBtn').disabled = startupTabs.length === 0;
+
+  if (startupTabs.length === 0) {
+    tabList.innerHTML = '<div class="empty">No startup tabs yet</div>';
     return;
   }
-  
-  pinnedTabs.forEach((url) => {
+
+  startupTabs.forEach((url, index) => {
     const item = document.createElement('div');
     item.className = 'tab-item';
-    
+
+    const order = document.createElement('div');
+    order.className = 'tab-order';
+    order.textContent = `${index + 1}.`;
+
     const urlSpan = document.createElement('div');
     urlSpan.className = 'tab-url';
     urlSpan.textContent = url;
     urlSpan.title = url;
-    
-    const button = document.createElement('button');
-    button.textContent = 'Remove';
-    button.onclick = () => removePinnedTab(url);
-    
+
+    item.appendChild(order);
     item.appendChild(urlSpan);
-    item.appendChild(button);
     tabList.appendChild(item);
   });
 }
 
-async function removePinnedTab(url) {
-  const data = await browser.storage.local.get(STORAGE_KEY);
-  const pinnedTabs = data[STORAGE_KEY] || [];
-  
-  const filtered = pinnedTabs.filter(u => u !== url);
-  await browser.storage.local.set({ [STORAGE_KEY]: filtered });
-  
-  loadPinnedTabs();
+// The background script does the opening; the popup closes once a tab opens.
+async function openStartupTabsNow() {
+  const win = await browser.windows.getCurrent();
+  await browser.runtime.sendMessage({ type: 'openStartupTabs', windowId: win.id });
+  window.close();
 }
 
-async function clearAllPinnedTabs() {
-  if (confirm('Clear all pinned tabs?')) {
-    await browser.storage.local.set({ [STORAGE_KEY]: [] });
-    loadPinnedTabs();
-  }
-}
+document.getElementById('openBtn').addEventListener('click', openStartupTabsNow);
+document.getElementById('settingsBtn').addEventListener('click', () => {
+  browser.runtime.openOptionsPage();
+  window.close();
+});
 
-document.getElementById('refreshBtn').addEventListener('click', loadPinnedTabs);
-document.getElementById('clearBtn').addEventListener('click', clearAllPinnedTabs);
-document.getElementById('settingsBtn').addEventListener('click', () => browser.runtime.openOptionsPage());
-
-// Load on open
-loadPinnedTabs();
+loadStartupTabs();

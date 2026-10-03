@@ -1,14 +1,15 @@
-# Pinned Tab Persistence
+# Pinned Startup Tabs
 
-A Firefox extension that saves your pinned tabs and reopens them automatically, so closing a window no longer loses them.
+A Firefox extension that opens a fixed set of sites as pinned tabs, in your chosen order, every time Firefox starts. It works like having several home pages.
 
 ## Features
 
-- Pinned tab URLs are saved to local browser storage as soon as you pin them
-- Saved tabs are restored, in order, on browser startup only
-- Existing tabs are re-pinned rather than duplicated
-- A toolbar popup lets you review saved tabs, remove individual entries, or clear all
-- A settings page lets you add URLs directly and reorder the list, without needing to open and pin each tab manually first
+- Define the set on the settings page: add, remove, reorder. Typing `wsj.com` is enough.
+- On browser launch the set opens as pinned tabs at the left of one window, in order
+- Sites that are already open are not opened again. This includes tabs Firefox's own session restore brought back, even after a redirect (for example `www.x.com` → `x.com/home`).
+- New windows and private windows are left alone
+- The toolbar popup shows the set and has **Open set now**, which opens any missing tabs in the current window without restarting
+- **Add this window's pinned tabs** on the settings page copies tabs you've pinned by hand into the set
 
 ## Installation
 
@@ -29,27 +30,38 @@ Temporary add-ons are removed when Firefox closes. Use this while iterating on t
 
 ## How it works
 
-`background.js` listens for `tabs.onUpdated` and watches the `pinned` flag. Pinning a tab appends its URL to an ordered list in `storage.local`; unpinning removes it. The settings page (`options.html`/`options.js`) reads and writes that same list, letting you add URLs directly and reorder them without pinning anything by hand. On `runtime.onStartup` — browser launch only, not every new window — the list is replayed into each open window in order, one tab at a time, skipping URLs already open and pinning them in place instead.
+The set is one ordered list of URLs in `storage.local`, written only by the settings page. Pinning, unpinning or closing tabs never changes it.
+
+On `runtime.onStartup` (browser launch only), `background.js` picks the first normal, non-private window. It waits for the tab strip to go quiet (1 s with no tab created or navigated, 10 s at most) so Firefox's session restore can finish. Then it walks the list in order. For each entry it looks for an open tab on the same site (hostname, ignoring `www.`):
+
+- **No match:** open the URL as a pinned tab in the next slot from the left
+- **Pinned match:** move that tab into the slot instead of opening a duplicate
+- **Unpinned match:** leave the user's tab where it is and skip the entry
+
+The popup's **Open set now** runs the same routine on the current window.
+
+Upgrading from 1.x discards the old automatically recorded `pinnedTabs` list and opens the settings page.
 
 ## Known limitations
 
-**Tabs are stored as a flat global list.** All windows share one set of pinned tabs rather than each window keeping its own.
+- The set opens in one window only, not in every window restored at launch.
+- Site matching is by hostname. Any open tab on a site (say a LinkedIn profile) counts as that site already being open.
 
 ## Files
 
 | File | Purpose |
 | --- | --- |
 | `manifest.json` | Extension configuration, permissions, add-on ID |
-| `background.js` | Persistence logic |
+| `background.js` | Opens the set on launch and on request from the popup |
 | `popup.html` | Popup markup and styles |
 | `popup.js` | Popup interaction logic |
 | `options.html` | Settings page markup and styles |
-| `options.js` | Settings page interaction logic (add, remove, reorder) |
+| `options.js` | Settings page interaction logic (add, remove, reorder, import pinned tabs) |
 
 ## Permissions
 
 - `tabs` — read tab URLs, pin tabs, create tabs
-- `storage` — persist the pinned URL list locally
+- `storage` — persist the URL list locally
 
 The extension collects and transmits no data. This is declared in the manifest via `browser_specific_settings.gecko.data_collection_permissions` with `required: ["none"]`, which Firefox surfaces on the install prompt.
 
@@ -63,6 +75,6 @@ zip -r pinned-tabs.xpi manifest.json background.js popup.html popup.js options.h
 
 ## Possible improvements
 
-- Per-window pinned tab sets
-- Export and import the saved list as JSON
+- Sync the set across devices with `storage.sync`
+- Export and import the set as JSON
 - Drag-to-reorder in the settings page instead of up/down buttons

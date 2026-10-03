@@ -1,35 +1,40 @@
-const STORAGE_KEY = 'pinnedTabs';
+const STORAGE_KEY = 'startupTabs';
 
-async function getPinnedTabs() {
+async function getStartupTabs() {
   const data = await browser.storage.local.get(STORAGE_KEY);
   return data[STORAGE_KEY] || [];
 }
 
-async function setPinnedTabs(urls) {
+async function setStartupTabs(urls) {
   await browser.storage.local.set({ [STORAGE_KEY]: urls });
 }
 
+// Accepts "wsj.com" as well as full URLs. Only http(s) is allowed.
 function normalizeUrl(input) {
   const trimmed = input.trim();
   if (!trimmed) return null;
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   try {
-    return new URL(trimmed).href;
+    const url = new URL(withScheme);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    if (!url.hostname.includes('.') && url.hostname !== 'localhost') return null;
+    return url.href;
   } catch {
     return null;
   }
 }
 
 async function render() {
-  const pinnedTabs = await getPinnedTabs();
+  const startupTabs = await getStartupTabs();
   const tabList = document.getElementById('tabList');
   tabList.innerHTML = '';
 
-  if (pinnedTabs.length === 0) {
-    tabList.innerHTML = '<div class="empty">No pinned tabs configured yet</div>';
+  if (startupTabs.length === 0) {
+    tabList.innerHTML = '<div class="empty">No startup tabs yet — add one above</div>';
     return;
   }
 
-  pinnedTabs.forEach((url, index) => {
+  startupTabs.forEach((url, index) => {
     const item = document.createElement('div');
     item.className = 'tab-item';
 
@@ -54,7 +59,7 @@ async function render() {
     const downBtn = document.createElement('button');
     downBtn.className = 'move-btn';
     downBtn.textContent = '↓';
-    downBtn.disabled = index === pinnedTabs.length - 1;
+    downBtn.disabled = index === startupTabs.length - 1;
     downBtn.onclick = () => moveTab(index, index + 1);
 
     const removeBtn = document.createElement('button');
@@ -84,34 +89,59 @@ async function addTab() {
     return;
   }
 
-  const pinnedTabs = await getPinnedTabs();
-  if (pinnedTabs.includes(normalized)) {
+  const startupTabs = await getStartupTabs();
+  if (startupTabs.includes(normalized)) {
     errorMsg.textContent = 'That URL is already in the list';
     return;
   }
 
-  pinnedTabs.push(normalized);
-  await setPinnedTabs(pinnedTabs);
+  startupTabs.push(normalized);
+  await setStartupTabs(startupTabs);
   input.value = '';
   render();
 }
 
 async function removeTab(index) {
-  const pinnedTabs = await getPinnedTabs();
-  pinnedTabs.splice(index, 1);
-  await setPinnedTabs(pinnedTabs);
+  const startupTabs = await getStartupTabs();
+  startupTabs.splice(index, 1);
+  await setStartupTabs(startupTabs);
   render();
 }
 
 async function moveTab(from, to) {
-  const pinnedTabs = await getPinnedTabs();
-  if (to < 0 || to >= pinnedTabs.length) return;
-  const [moved] = pinnedTabs.splice(from, 1);
-  pinnedTabs.splice(to, 0, moved);
-  await setPinnedTabs(pinnedTabs);
+  const startupTabs = await getStartupTabs();
+  if (to < 0 || to >= startupTabs.length) return;
+  const [moved] = startupTabs.splice(from, 1);
+  startupTabs.splice(to, 0, moved);
+  await setStartupTabs(startupTabs);
   render();
 }
 
+// Append this window's pinned tabs to the end of the list, skipping duplicates.
+async function addPinnedFromWindow() {
+  const errorMsg = document.getElementById('errorMsg');
+  errorMsg.textContent = '';
+
+  const tabs = await browser.tabs.query({ currentWindow: true, pinned: true });
+  const startupTabs = await getStartupTabs();
+  let added = 0;
+  for (const tab of tabs) {
+    const normalized = normalizeUrl(tab.url || '');
+    if (normalized && !startupTabs.includes(normalized)) {
+      startupTabs.push(normalized);
+      added++;
+    }
+  }
+
+  if (added === 0) {
+    errorMsg.textContent = 'No new pinned tabs in this window to add';
+    return;
+  }
+  await setStartupTabs(startupTabs);
+  render();
+}
+
+document.getElementById('importBtn').addEventListener('click', addPinnedFromWindow);
 document.getElementById('addBtn').addEventListener('click', addTab);
 document.getElementById('urlInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') addTab();
