@@ -56,6 +56,7 @@ Upgrading from 1.x discards the old automatically recorded `pinnedTabs` list and
 | `popup.html` | Popup markup and styles |
 | `popup.js` | Popup interaction logic |
 | `options.html` | Settings page markup and styles |
+| `icons/icon.svg` | Extension and toolbar icon |
 | `options.js` | Settings page interaction logic (add, remove, reorder, import pinned tabs) |
 
 ## Permissions
@@ -70,7 +71,7 @@ The extension collects and transmits no data. This is declared in the manifest v
 No build step. The source files are the shipped files. To produce an `.xpi`:
 
 ```bash
-zip -r pinned-tabs.xpi manifest.json background.js popup.html popup.js options.html options.js README.md
+zip -r pinned-tabs.xpi manifest.json background.js popup.html popup.js options.html options.js icons README.md
 ```
 
 ## Possible improvements

@@ -98,7 +98,7 @@ The set opens in one window only. Site matching is hostname-level.
 ## Packaging
 
 ```bash
-zip -r pinned-tabs.xpi manifest.json background.js popup.html popup.js options.html options.js README.md
+zip -r pinned-tabs.xpi manifest.json background.js popup.html popup.js options.html options.js icons README.md
 ```
 
 Bump `version` in `manifest.json` before each submission; Mozilla rejects
