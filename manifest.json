@@ -19,7 +19,9 @@
     "scripts": ["background.js"]
   },
   "action": {
-    "default_title": "Pinned Startup Tabs"
+    "default_title": "Pinned Startup Tabs",
+    "default_popup": "popup.html",
+    "default_area": "navbar"
   },
   "options_ui": {
     "page": "options.html",
